@@ -1,6 +1,5 @@
 # SAST & DAST Security Assessment – OWASP Juice Shop
 
-Application%20Security-SAST%20%2B%20DAST-blue)
 ![SonarQube](https://img.shields.io/badge/SAST-SonarQube-informational)
 ![OWASP ZAP](https://img.shields.io/badge/DAST-OWASP%20ZAP-informational)
 ![Docker](https://img.shields.io/badge/Platform-Docker-blue)
