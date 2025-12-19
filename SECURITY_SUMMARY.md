@@ -53,7 +53,6 @@ Without a CSP header, the application is more susceptible to client-side attacks
 
 
 ## NIST SP 800-53 Rev. 5 Alignment (Selected Controls)
-## NIST SP 800-53 Rev. 5 Alignment (Selected Controls)
 
 This project demonstrates activities that align with selected NIST SP 800-53 Rev. 5 control objectives. The mapping below is illustrative and not intended to represent full system compliance.
 
