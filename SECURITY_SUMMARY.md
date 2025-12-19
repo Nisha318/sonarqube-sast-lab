@@ -3,6 +3,8 @@
 ## Overview
 This project demonstrates a combined SAST and DAST workflow using SonarQube and OWASP ZAP against the OWASP Juice Shop application. The goal is to identify code-level and runtime security risks and explain practical remediation strategies.
 
+
+
 ---
 
 ## Top Vulnerability #1 (SAST)

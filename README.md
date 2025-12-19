@@ -1,14 +1,15 @@
 # SAST & DAST Security Assessment – OWASP Juice Shop
 
-![AppSec](https://img.shields.io/badge/Application%20Security-SAST%20%2B%20DAST-blue)
+Application%20Security-SAST%20%2B%20DAST-blue)
 ![SonarQube](https://img.shields.io/badge/SAST-SonarQube-informational)
 ![OWASP ZAP](https://img.shields.io/badge/DAST-OWASP%20ZAP-informational)
 ![Docker](https://img.shields.io/badge/Platform-Docker-blue)
 ![Status](https://img.shields.io/badge/Project-Completed-brightgreen)
 
+![Application Security Workflow](assets/appsec-workflow.png)
 
 ## Summary
-This project demonstrates a practical **application security assessment workflow** by combining **static analysis (SAST)** and **dynamic analysis (DAST)** against the OWASP Juice Shop application.
+This project demonstrates a practical **application security assessment workflow** that combines static analysis (SAST) and dynamic analysis (DAST) to evaluate the OWASP Juice Shop application across both code-level and runtime attack surfaces.
 
 The focus is not on tool usage alone, but on **how different testing methods surface different risk classes**, how findings are interpreted, and how remediation decisions are made.
 
