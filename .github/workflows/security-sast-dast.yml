@@ -171,11 +171,14 @@ jobs:
           docker logs juice-shop || true
           exit 1
 
+
       - name: Run OWASP ZAP Baseline (DAST)
         id: zap
         continue-on-error: true
         run: |
+          # Create evidence directory with proper permissions
           mkdir -p evidence/dast/reports
+          chmod -R 777 evidence/dast/reports
 
           set +e
           docker run --rm \
@@ -184,15 +187,21 @@ jobs:
             owasp/zap2docker-stable \
             zap-baseline.py \
               -t "${JUICE_SHOP_URL}" \
-              -r evidence/dast/reports/zap-baseline.html \
-              -J evidence/dast/reports/zap-baseline.json \
-              -w evidence/dast/reports/zap-baseline.md \
+              -r /zap/wrk/evidence/dast/reports/zap-baseline.html \
+              -J /zap/wrk/evidence/dast/reports/zap-baseline.json \
+              -w /zap/wrk/evidence/dast/reports/zap-baseline.md \
               -m 5
           ZAP_EXIT=$?
           set -e
 
           echo "exit_code=$ZAP_EXIT" >> "$GITHUB_OUTPUT"
           echo "ZAP baseline exit code: $ZAP_EXIT"
+          
+          # List generated files for debugging
+          echo "Generated ZAP reports:"
+          ls -lah evidence/dast/reports/ || echo "No reports found"
+
+
 
       - name: Upload DAST reports (ZAP)
         if: always()
