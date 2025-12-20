@@ -40,23 +40,24 @@ jobs:
                 - "9000:9000"
               environment:
                 SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
-             
           YAML
 
           docker compose -f docker-compose.ci.yml up -d
           echo "Waiting for SonarQube to be ready..."
-          timeout 20m bash -c '
+          
+          if timeout 20m bash -c '
             until curl -sf http://localhost:9000/api/system/status \
               | grep -q "\"status\":\"UP\""; do
                echo "SonarQube still starting..."
                sleep 10
             done
-          '
-
-          echo "SonarQube is UP."
-          echo "SonarQube did not become ready in time."
-          docker compose -f docker-compose.ci.yml logs sonarqube || true
-          exit 1
+          '; then
+            echo "SonarQube is UP."
+          else
+            echo "SonarQube did not become ready in time."
+            docker compose -f docker-compose.ci.yml logs sonarqube || true
+            exit 1
+          fi
 
       - name: Set SonarQube admin password (ephemeral instance)
         env:
@@ -74,7 +75,19 @@ jobs:
           TOKEN_JSON=$(curl -sS -u "admin:${SONAR_ADMIN_PASSWORD}" -X POST \
             "http://localhost:9000/api/user_tokens/generate" \
             -d "name=github-actions")
+          
+          if [ -z "$TOKEN_JSON" ]; then
+            echo "Failed to generate SonarQube token"
+            exit 1
+          fi
+          
           TOKEN=$(echo "$TOKEN_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])")
+          
+          if [ -z "$TOKEN" ]; then
+            echo "Failed to extract token from response"
+            exit 1
+          fi
+          
           echo "token=${TOKEN}" >> "$GITHUB_OUTPUT"
 
       - name: Run SonarScanner (SAST)
@@ -92,8 +105,26 @@ jobs:
             -Dsonar.sourceEncoding=UTF-8
 
       - name: Wait for SonarQube background task
+        env:
+          SONAR_ADMIN_PASSWORD: ${{ secrets.SONAR_ADMIN_PASSWORD }}
         run: |
-          sleep 25
+          echo "Waiting for SonarQube analysis to complete..."
+          for i in $(seq 1 60); do
+            STATUS=$(curl -sS -u "admin:${SONAR_ADMIN_PASSWORD}" \
+              "http://localhost:9000/api/ce/activity?status=SUCCESS,FAILED,CANCELED&ps=1" \
+              | jq -r '.tasks[0].status' || echo "PENDING")
+            
+            if [ "$STATUS" = "SUCCESS" ]; then
+              echo "Analysis completed successfully"
+              break
+            elif [ "$STATUS" = "FAILED" ] || [ "$STATUS" = "CANCELED" ]; then
+              echo "Analysis failed with status: $STATUS"
+              exit 1
+            fi
+            
+            echo "Analysis still running... ($i/60)"
+            sleep 5
+          done
 
       - name: SAST Snapshot (SonarQube Summary)
         env:
@@ -109,13 +140,13 @@ jobs:
           RESPONSE=$(curl -sS -u "admin:${SONAR_ADMIN_PASSWORD}" \
             "http://localhost:9000/api/measures/component?component=${SONAR_PROJECT_KEY}&metricKeys=${METRICS}")
 
-          BUGS=$(echo "$RESPONSE" | jq -r '.component.measures[] | select(.metric=="bugs") | .value' || true)
-          VULNS=$(echo "$RESPONSE" | jq -r '.component.measures[] | select(.metric=="vulnerabilities") | .value' || true)
-          HOTSPOTS=$(echo "$RESPONSE" | jq -r '.component.measures[] | select(.metric=="security_hotspots") | .value' || true)
+          BUGS=$(echo "$RESPONSE" | jq -r '.component.measures[] | select(.metric=="bugs") | .value' || echo "N/A")
+          VULNS=$(echo "$RESPONSE" | jq -r '.component.measures[] | select(.metric=="vulnerabilities") | .value' || echo "N/A")
+          HOTSPOTS=$(echo "$RESPONSE" | jq -r '.component.measures[] | select(.metric=="security_hotspots") | .value' || echo "N/A")
 
-          echo "**Bugs:** ${BUGS:-N/A}" >> "$GITHUB_STEP_SUMMARY"
-          echo "**Vulnerabilities:** ${VULNS:-N/A}" >> "$GITHUB_STEP_SUMMARY"
-          echo "**Security Hotspots:** ${HOTSPOTS:-N/A}" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Bugs:** ${BUGS}" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Vulnerabilities:** ${VULNS}" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Security Hotspots:** ${HOTSPOTS}" >> "$GITHUB_STEP_SUMMARY"
 
       # -----------------------------
       # Start Juice Shop target (DAST)
