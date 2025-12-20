@@ -40,23 +40,21 @@ jobs:
                 - "9000:9000"
               environment:
                 SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
-              healthcheck:
-                test: ["CMD-SHELL", "wget -qO- http://localhost:9000/api/system/health | grep -q '\"status\":\"GREEN\"\\|\"status\":\"YELLOW\"'"]
-                interval: 15s
-                timeout: 10s
-                retries: 40
+             
           YAML
 
           docker compose -f docker-compose.ci.yml up -d
-          echo "Waiting for SonarQube to be healthy..."
-          for i in $(seq 1 60); do
-            if curl -sf "http://localhost:9000/api/system/health" | grep -Eiq '"status":"(GREEN|YELLOW)"'; then
-              echo "SonarQube is up."
-              exit 0
-            fi
-            sleep 10
-          done
-          echo "SonarQube did not become healthy in time."
+          echo "Waiting for SonarQube to be ready..."
+          timeout 20m bash -c '
+            until curl -sf http://localhost:9000/api/system/status \
+              | grep -q "\"status\":\"UP\""; do
+               echo "SonarQube still starting..."
+               sleep 10
+            done
+          '
+
+          echo "SonarQube is UP."
+          echo "SonarQube did not become ready in time."
           docker compose -f docker-compose.ci.yml logs sonarqube || true
           exit 1
 
