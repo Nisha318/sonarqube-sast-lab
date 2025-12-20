@@ -36,6 +36,7 @@ The application is intentionally vulnerable to support security testing and anal
 - **SonarQube (Community Edition)** – Static Application Security Testing
 - **OWASP ZAP (Baseline Scan)** – Dynamic Application Security Testing
 - **Docker** – Local, repeatable execution
+- **GitHub Actions** – CI/CD automation for SAST and DAST (Phase 2)
 
 ---
 
@@ -46,8 +47,8 @@ The application is intentionally vulnerable to support security testing and anal
 - Identified confirmed security issues and security hotspots requiring manual review
 - Established a baseline without modifying application code
 
-Evidence:  evidence/sast/
-
+**Evidence:**  
+`evidence/sast/`
 
 ---
 
@@ -56,8 +57,8 @@ Evidence:  evidence/sast/
 - Performed a baseline, unauthenticated ZAP scan against the running service
 - Identified runtime configuration and response-level weaknesses
 
-Evidence:  evidence/dast/
-
+**Evidence:**  
+`evidence/dast/`
 
 ---
 
@@ -68,8 +69,8 @@ A direct comparison was performed to evaluate coverage differences:
 - Runtime posture issues (e.g., missing security headers) identified only via DAST
 - Limited overlap where static risks may or may not be exploitable at runtime
 
-Comparison and reasoning:  evidence/analysis/overlap.md
-
+**Comparison and reasoning:**  
+`evidence/analysis/overlap.md`
 
 ---
 
@@ -81,9 +82,8 @@ Two representative vulnerabilities were selected to illustrate remediation think
 
 Each finding includes impact, remediation strategy, and verification approach.
 
-See:  SECURITY_SUMMARY.md
-
-
+**See:**  
+`SECURITY_SUMMARY.md`
 
 ---
 
@@ -105,5 +105,3 @@ See:  SECURITY_SUMMARY.md
 ## Disclaimer
 This project is for educational and demonstration purposes only.  
 OWASP Juice Shop should never be deployed in production environments.
-
-

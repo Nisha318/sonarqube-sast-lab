@@ -1,0 +1,210 @@
+name: Phase 2 - SAST + DAST Pipeline
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  sast-dast:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    env:
+      SONAR_PROJECT_KEY: juice-shop-sast-dast
+      SONAR_HOST_URL: http://localhost:9000
+      JUICE_SHOP_URL: http://localhost:3000
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # -----------------------------
+      # Start SonarQube (ephemeral)
+      # -----------------------------
+      - name: Start SonarQube
+        run: |
+          cat > docker-compose.ci.yml << 'YAML'
+          services:
+            sonarqube:
+              image: sonarqube:community
+              ports:
+                - "9000:9000"
+              environment:
+                SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
+              healthcheck:
+                test: ["CMD-SHELL", "wget -qO- http://localhost:9000/api/system/health | grep -q '\"status\":\"GREEN\"\\|\"status\":\"YELLOW\"'"]
+                interval: 15s
+                timeout: 10s
+                retries: 40
+          YAML
+
+          docker compose -f docker-compose.ci.yml up -d
+          echo "Waiting for SonarQube to be healthy..."
+          for i in $(seq 1 60); do
+            if curl -sf "http://localhost:9000/api/system/health" | grep -Eiq '"status":"(GREEN|YELLOW)"'; then
+              echo "SonarQube is up."
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "SonarQube did not become healthy in time."
+          docker compose -f docker-compose.ci.yml logs sonarqube || true
+          exit 1
+
+      - name: Set SonarQube admin password (ephemeral instance)
+        env:
+          SONAR_ADMIN_PASSWORD: ${{ secrets.SONAR_ADMIN_PASSWORD }}
+        run: |
+          curl -sS -u admin:admin -X POST \
+            "http://localhost:9000/api/users/change_password" \
+            -d "login=admin&previousPassword=admin&password=${SONAR_ADMIN_PASSWORD}"
+
+      - name: Generate SonarQube token for CI
+        id: sonar_token
+        env:
+          SONAR_ADMIN_PASSWORD: ${{ secrets.SONAR_ADMIN_PASSWORD }}
+        run: |
+          TOKEN_JSON=$(curl -sS -u "admin:${SONAR_ADMIN_PASSWORD}" -X POST \
+            "http://localhost:9000/api/user_tokens/generate" \
+            -d "name=github-actions")
+          TOKEN=$(echo "$TOKEN_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])")
+          echo "token=${TOKEN}" >> "$GITHUB_OUTPUT"
+
+      - name: Run SonarScanner (SAST)
+        env:
+          SONAR_TOKEN: ${{ steps.sonar_token.outputs.token }}
+        run: |
+          docker run --rm \
+            -e SONAR_HOST_URL="${SONAR_HOST_URL}" \
+            -e SONAR_TOKEN="${SONAR_TOKEN}" \
+            -v "${GITHUB_WORKSPACE}:/usr/src" \
+            sonarsource/sonar-scanner-cli:latest \
+            -Dsonar.projectKey="${SONAR_PROJECT_KEY}" \
+            -Dsonar.projectBaseDir=/usr/src \
+            -Dsonar.sources=juice-shop/frontend,juice-shop/lib,juice-shop/routes,juice-shop/models,juice-shop/config \
+            -Dsonar.sourceEncoding=UTF-8
+
+      - name: Wait for SonarQube background task
+        run: |
+          sleep 25
+
+      - name: SAST Snapshot (SonarQube Summary)
+        env:
+          SONAR_ADMIN_PASSWORD: ${{ secrets.SONAR_ADMIN_PASSWORD }}
+          SONAR_PROJECT_KEY: ${{ env.SONAR_PROJECT_KEY }}
+        run: |
+          echo "## SAST Snapshot (SonarQube)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "_SAST results are informational in this phase and do not block the pipeline._" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          METRICS="bugs,vulnerabilities,security_hotspots"
+          RESPONSE=$(curl -sS -u "admin:${SONAR_ADMIN_PASSWORD}" \
+            "http://localhost:9000/api/measures/component?component=${SONAR_PROJECT_KEY}&metricKeys=${METRICS}")
+
+          BUGS=$(echo "$RESPONSE" | jq -r '.component.measures[] | select(.metric=="bugs") | .value' || true)
+          VULNS=$(echo "$RESPONSE" | jq -r '.component.measures[] | select(.metric=="vulnerabilities") | .value' || true)
+          HOTSPOTS=$(echo "$RESPONSE" | jq -r '.component.measures[] | select(.metric=="security_hotspots") | .value' || true)
+
+          echo "**Bugs:** ${BUGS:-N/A}" >> $GITHUB_STEP_SUMMARY
+          echo "**Vulnerabilities:** ${VULNS:-N/A}" >> $GITHUB_STEP_SUMMARY
+          echo "**Security Hotspots:** ${HOTSPOTS:-N/A}" >> $GITHUB_STEP_SUMMARY
+
+      # -----------------------------
+      # Start Juice Shop target (DAST)
+      # -----------------------------
+      - name: Start OWASP Juice Shop
+        run: |
+          docker run -d --rm \
+            --name juice-shop \
+            -p 3000:3000 \
+            bkimminich/juice-shop:latest
+
+          echo "Waiting for Juice Shop to be reachable..."
+          for i in $(seq 1 60); do
+            if curl -sf "${JUICE_SHOP_URL}" >/dev/null; then
+              echo "Juice Shop is up."
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Juice Shop did not start in time."
+          docker logs juice-shop || true
+          exit 1
+
+      - name: Run OWASP ZAP Baseline (DAST)
+        id: zap
+        continue-on-error: true
+        run: |
+          mkdir -p evidence/dast/reports
+
+          docker run --rm \
+            --network host \
+            -v "${GITHUB_WORKSPACE}:/zap/wrk:rw" \
+            owasp/zap2docker-stable \
+            zap-baseline.py \
+              -t "${JUICE_SHOP_URL}" \
+              -r evidence/dast/reports/zap-baseline.html \
+              -J evidence/dast/reports/zap-baseline.json \
+              -w evidence/dast/reports/zap-baseline.md \
+              -m 5
+
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Upload DAST reports (ZAP)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-dast-reports
+          path: evidence/dast/reports/
+
+      - name: Upload SonarScanner metadata (optional)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sast-sonar-metadata
+          path: .scannerwork/**
+          if-no-files-found: ignore
+
+      - name: Security Gate Decision (DAST High alerts)
+        if: always()
+        run: |
+          echo "## Security Gate Decision" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Gate policy:** Fail the pipeline if OWASP ZAP baseline detects HIGH alerts." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          ZAP_EXIT="${{ steps.zap.outputs.exit_code }}"
+
+          if [ -z "$ZAP_EXIT" ]; then
+            echo "**Result:** Unable to determine ZAP exit code." >> $GITHUB_STEP_SUMMARY
+            echo "Security Gate: FAIL (missing exit code)"
+            exit 1
+          fi
+
+          if [ "$ZAP_EXIT" -eq 0 ]; then
+            echo "**Result:** PASS ✅ (No HIGH alerts detected by baseline scan)" >> $GITHUB_STEP_SUMMARY
+            echo "Security Gate: PASS (ZAP exit code $ZAP_EXIT)"
+            exit 0
+          else
+            echo "**Result:** FAIL ❌ (Baseline scan detected HIGH alerts or scan error)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Artifacts include the full ZAP reports for triage:" >> $GITHUB_STEP_SUMMARY
+            echo "- zap-baseline.html" >> $GITHUB_STEP_SUMMARY
+            echo "- zap-baseline.json" >> $GITHUB_STEP_SUMMARY
+            echo "- zap-baseline.md" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Security Gate: FAIL (ZAP exit code $ZAP_EXIT)"
+            exit 1
+          fi
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker rm -f juice-shop >/dev/null 2>&1 || true
+          docker compose -f docker-compose.ci.yml down -v >/dev/null 2>&1 || true
+
