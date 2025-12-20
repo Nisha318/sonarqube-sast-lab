@@ -184,7 +184,7 @@ jobs:
           docker run --rm \
             --network host \
             -v "${GITHUB_WORKSPACE}:/zap/wrk:rw" \
-            owasp/zap2docker-stable \
+            ghcr.io/zaproxy/zaproxy:stable \
             zap-baseline.py \
               -t "${JUICE_SHOP_URL}" \
               -r /zap/wrk/evidence/dast/reports/zap-baseline.html \
