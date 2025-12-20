@@ -142,6 +142,7 @@ jobs:
         run: |
           mkdir -p evidence/dast/reports
 
+          set +e
           docker run --rm \
             --network host \
             -v "${GITHUB_WORKSPACE}:/zap/wrk:rw" \
@@ -152,8 +153,11 @@ jobs:
               -J evidence/dast/reports/zap-baseline.json \
               -w evidence/dast/reports/zap-baseline.md \
               -m 5
+          ZAP_EXIT=$?
+          set -e
 
-          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+          echo "exit_code=$ZAP_EXIT" >> "$GITHUB_OUTPUT"
+          echo "ZAP baseline exit code: $ZAP_EXIT"
 
       - name: Upload DAST reports (ZAP)
         if: always()
