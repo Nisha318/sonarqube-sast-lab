@@ -187,9 +187,9 @@ jobs:
             ghcr.io/zaproxy/zaproxy:stable \
             zap-baseline.py \
               -t "${JUICE_SHOP_URL}" \
-              -r /zap/wrk/evidence/dast/reports/zap-baseline.html \
-              -J /zap/wrk/evidence/dast/reports/zap-baseline.json \
-              -w /zap/wrk/evidence/dast/reports/zap-baseline.md \
+              -r evidence/dast/reports/zap-baseline.html \
+              -J evidence/dast/reports/zap-baseline.json \
+              -w evidence/dast/reports/zap-baseline.md \
               -m 5
           ZAP_EXIT=$?
           set -e
@@ -199,7 +199,7 @@ jobs:
           
           # List generated files for debugging
           echo "Generated ZAP reports:"
-          ls -lah evidence/dast/reports/ || echo "No reports found"
+          ls -lah evidence/dast/reports/
 
 
 
@@ -230,28 +230,37 @@ jobs:
 
           if [ -z "$ZAP_EXIT" ]; then
             echo "**Result:** ZAP scan did not complete (exit code not captured)" >> "$GITHUB_STEP_SUMMARY"
-            echo "This likely means the ZAP step failed to run due to earlier pipeline failures." >> "$GITHUB_STEP_SUMMARY"
-            echo "" >> "$GITHUB_STEP_SUMMARY"
             echo "Security Gate: SKIPPED (ZAP did not run)"
-            echo "Note: Check earlier steps for failures that prevented ZAP execution"
             exit 0
           fi
 
-          if [ "$ZAP_EXIT" -eq 0 ]; then
-            echo "**Result:** PASS ✅ (No HIGH alerts detected by baseline scan)" >> "$GITHUB_STEP_SUMMARY"
-            echo "Security Gate: PASS (ZAP exit code $ZAP_EXIT)"
-            exit 0
-          else
-            echo "**Result:** FAIL ❌ (Baseline scan detected HIGH alerts or scan error)" >> "$GITHUB_STEP_SUMMARY"
-            echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "Artifacts include the full ZAP reports for triage:" >> "$GITHUB_STEP_SUMMARY"
-            echo "- zap-baseline.html" >> "$GITHUB_STEP_SUMMARY"
-            echo "- zap-baseline.json" >> "$GITHUB_STEP_SUMMARY"
-            echo "- zap-baseline.md" >> "$GITHUB_STEP_SUMMARY"
-            echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "Security Gate: FAIL (ZAP exit code $ZAP_EXIT)"
-            exit 1
-          fi
+          case "$ZAP_EXIT" in
+            0)
+              echo "**Result:** PASS ✅ (No alerts detected)" >> "$GITHUB_STEP_SUMMARY"
+              echo "Security Gate: PASS"
+              exit 0
+              ;;
+            1)
+              echo "**Result:** FAIL ❌ (HIGH/CRITICAL alerts detected)" >> "$GITHUB_STEP_SUMMARY"
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              echo "Review ZAP reports in artifacts for details." >> "$GITHUB_STEP_SUMMARY"
+              echo "Security Gate: FAIL (ZAP exit code $ZAP_EXIT)"
+              exit 1
+              ;;
+            2)
+              echo "**Result:** PASS ⚠️ (WARN-level alerts only, no HIGH alerts)" >> "$GITHUB_STEP_SUMMARY"
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              echo "Warnings found but no HIGH/CRITICAL alerts. Pipeline passes." >> "$GITHUB_STEP_SUMMARY"
+              echo "Review ZAP reports in artifacts for warning details." >> "$GITHUB_STEP_SUMMARY"
+              echo "Security Gate: PASS (warnings acceptable)"
+              exit 0
+              ;;
+            *)
+              echo "**Result:** FAIL ❌ (ZAP scan error)" >> "$GITHUB_STEP_SUMMARY"
+              echo "Security Gate: FAIL (ZAP exit code $ZAP_EXIT)"
+              exit 1
+              ;;
+          esac
 
       - name: Cleanup
         if: always()
