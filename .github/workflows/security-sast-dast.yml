@@ -22,6 +22,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install deps (jq)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+
       # -----------------------------
       # Start SonarQube (ephemeral)
       # -----------------------------
@@ -97,10 +102,10 @@ jobs:
           SONAR_ADMIN_PASSWORD: ${{ secrets.SONAR_ADMIN_PASSWORD }}
           SONAR_PROJECT_KEY: ${{ env.SONAR_PROJECT_KEY }}
         run: |
-          echo "## SAST Snapshot (SonarQube)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "_SAST results are informational in this phase and do not block the pipeline._" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## SAST Snapshot (SonarQube)" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "_SAST results are informational in this phase and do not block the pipeline._" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
 
           METRICS="bugs,vulnerabilities,security_hotspots"
           RESPONSE=$(curl -sS -u "admin:${SONAR_ADMIN_PASSWORD}" \
@@ -110,9 +115,9 @@ jobs:
           VULNS=$(echo "$RESPONSE" | jq -r '.component.measures[] | select(.metric=="vulnerabilities") | .value' || true)
           HOTSPOTS=$(echo "$RESPONSE" | jq -r '.component.measures[] | select(.metric=="security_hotspots") | .value' || true)
 
-          echo "**Bugs:** ${BUGS:-N/A}" >> $GITHUB_STEP_SUMMARY
-          echo "**Vulnerabilities:** ${VULNS:-N/A}" >> $GITHUB_STEP_SUMMARY
-          echo "**Security Hotspots:** ${HOTSPOTS:-N/A}" >> $GITHUB_STEP_SUMMARY
+          echo "**Bugs:** ${BUGS:-N/A}" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Vulnerabilities:** ${VULNS:-N/A}" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Security Hotspots:** ${HOTSPOTS:-N/A}" >> "$GITHUB_STEP_SUMMARY"
 
       # -----------------------------
       # Start Juice Shop target (DAST)
@@ -177,31 +182,31 @@ jobs:
       - name: Security Gate Decision (DAST High alerts)
         if: always()
         run: |
-          echo "## Security Gate Decision" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Gate policy:** Fail the pipeline if OWASP ZAP baseline detects HIGH alerts." >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Security Gate Decision" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Gate policy:** Fail the pipeline if OWASP ZAP baseline detects HIGH alerts." >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
 
           ZAP_EXIT="${{ steps.zap.outputs.exit_code }}"
 
           if [ -z "$ZAP_EXIT" ]; then
-            echo "**Result:** Unable to determine ZAP exit code." >> $GITHUB_STEP_SUMMARY
+            echo "**Result:** Unable to determine ZAP exit code." >> "$GITHUB_STEP_SUMMARY"
             echo "Security Gate: FAIL (missing exit code)"
             exit 1
           fi
 
           if [ "$ZAP_EXIT" -eq 0 ]; then
-            echo "**Result:** PASS ✅ (No HIGH alerts detected by baseline scan)" >> $GITHUB_STEP_SUMMARY
+            echo "**Result:** PASS ✅ (No HIGH alerts detected by baseline scan)" >> "$GITHUB_STEP_SUMMARY"
             echo "Security Gate: PASS (ZAP exit code $ZAP_EXIT)"
             exit 0
           else
-            echo "**Result:** FAIL ❌ (Baseline scan detected HIGH alerts or scan error)" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "Artifacts include the full ZAP reports for triage:" >> $GITHUB_STEP_SUMMARY
-            echo "- zap-baseline.html" >> $GITHUB_STEP_SUMMARY
-            echo "- zap-baseline.json" >> $GITHUB_STEP_SUMMARY
-            echo "- zap-baseline.md" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Result:** FAIL ❌ (Baseline scan detected HIGH alerts or scan error)" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "Artifacts include the full ZAP reports for triage:" >> "$GITHUB_STEP_SUMMARY"
+            echo "- zap-baseline.html" >> "$GITHUB_STEP_SUMMARY"
+            echo "- zap-baseline.json" >> "$GITHUB_STEP_SUMMARY"
+            echo "- zap-baseline.md" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
             echo "Security Gate: FAIL (ZAP exit code $ZAP_EXIT)"
             exit 1
           fi
@@ -211,4 +216,3 @@ jobs:
         run: |
           docker rm -f juice-shop >/dev/null 2>&1 || true
           docker compose -f docker-compose.ci.yml down -v >/dev/null 2>&1 || true
-
