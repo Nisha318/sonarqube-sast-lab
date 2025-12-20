@@ -35,7 +35,7 @@ The application is intentionally vulnerable to support security testing and anal
 ## Tooling
 - **SonarQube (Community Edition)** – Static Application Security Testing
 - **OWASP ZAP (Baseline Scan)** – Dynamic Application Security Testing
-- **Docker** – Local, repeatable execution
+- **Docker** – Containerized execution for local and CI environments
 - **GitHub Actions** – CI/CD automation for SAST and DAST (Phase 2)
 
 ---
@@ -48,17 +48,18 @@ The application is intentionally vulnerable to support security testing and anal
 - Established a baseline without modifying application code
 
 **Evidence:**  
-`evidence/sast/`
+SAST findings are summarized in `SECURITY_SUMMARY.md`.  
+Raw scan metadata is generated during CI execution and preserved as pipeline artifacts.
 
 ---
 
 ### Dynamic Analysis (DAST)
-- Deployed the application locally
+- Deployed the application in a containerized environment
 - Performed a baseline, unauthenticated ZAP scan against the running service
 - Identified runtime configuration and response-level weaknesses
 
 **Evidence:**  
-`evidence/dast/`
+DAST reports are generated during CI execution and preserved as GitHub Actions artifacts.
 
 ---
 
@@ -84,6 +85,18 @@ Each finding includes impact, remediation strategy, and verification approach.
 
 **See:**  
 `SECURITY_SUMMARY.md`
+
+---
+
+## CI Evidence
+
+This project includes a fully automated GitHub Actions pipeline that:
+- Runs SAST with SonarQube
+- Runs DAST with OWASP ZAP
+- Applies a high-severity security gate based on DAST results
+- Publishes security summaries and preserves scan artifacts for triage
+
+Screenshots of successful pipeline execution are included in `/screenshots`.
 
 ---
 

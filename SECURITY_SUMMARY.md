@@ -65,9 +65,11 @@ In Phase 2, the assessment was extended to demonstrate how application security 
 
 SAST and DAST were automated using a GitHub Actions pipeline. SAST is executed using SonarQube to provide visibility into code-level risks and security hotspots early in the development lifecycle. These results are summarized for awareness and trend tracking but are not enforced as blocking conditions due to the intentionally vulnerable nature of the application.
 
-DAST is performed against a running, containerized instance of the application using an OWASP ZAP baseline scan. A high-signal security gate was introduced to fail the pipeline when high-severity runtime findings are detected. This approach balances security enforcement with developer productivity by prioritizing issues that represent immediate, exploitable risk.
+DAST is performed against a running, containerized instance of the application using an OWASP ZAP baseline scan. A high-signal security gate was introduced to fail the pipeline only when **HIGH-severity runtime findings** are detected. WARN-level findings are permitted to pass, preserving developer velocity while still enforcing meaningful security controls.
 
-Pipeline artifacts, including DAST reports and SAST metadata, are preserved for triage and verification. A clear security gate decision is published with each run to make pass or fail rationale explicit.
+
+Pipeline artifacts, including DAST reports and SonarQube scan metadata, are preserved for triage and verification. A clear security gate decision is published with each run to make pass or fail rationale explicit.
+
 
 This phase demonstrates how application security evolves from point-in-time testing to repeatable, automated enforcement, supporting secure SDLC practices and software supply chain security prior to deployment.
 
