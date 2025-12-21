@@ -5,8 +5,6 @@
 ![Docker](https://img.shields.io/badge/Platform-Docker-blue)
 ![Status](https://img.shields.io/badge/Project-Completed-brightgreen)
 
-![Application Security Workflow](assets/appsec-workflow.png)
-
 ## Summary
 This project demonstrates a practical **application security assessment workflow** that combines static analysis (SAST) and dynamic analysis (DAST) to evaluate the OWASP Juice Shop application across both code-level and runtime attack surfaces.
 
@@ -40,7 +38,11 @@ The application is intentionally vulnerable to support security testing and anal
 
 ---
 
+![Phase 2 Flow Diagram](assets/phase2-diagram.png)
+
+---
 ## Assessment Approach
+
 
 ### Static Analysis (SAST)
 - Analyzed application source code for insecure patterns and security-sensitive constructs
