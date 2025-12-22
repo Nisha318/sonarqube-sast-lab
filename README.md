@@ -1,9 +1,28 @@
 # SAST & DAST Security Assessment – OWASP Juice Shop
 
+
 ![SonarQube](https://img.shields.io/badge/SAST-SonarQube-informational)
 ![OWASP ZAP](https://img.shields.io/badge/DAST-OWASP%20ZAP-informational)
 ![Docker](https://img.shields.io/badge/Platform-Docker-blue)
 ![Status](https://img.shields.io/badge/Project-Completed-brightgreen)
+
+## Table of Contents
+
+- [Summary](#summary)
+- [What This Demonstrates](#what-this-demonstrates)
+- [Target System](#target-system)
+- [Tooling](#tooling)
+- [Assessment Approach](#assessment-approach)
+  - [Static Analysis (SAST)](#static-analysis-sast)
+  - [Dynamic Analysis (DAST)](#dynamic-analysis-dast)
+- [SAST vs DAST Comparison](#sast-vs-dast-comparison)
+- [Key Findings (Executive View)](#key-findings-executive-view)
+- [CI Evidence](#ci-evidence)
+- [Phase 3 – Policy as Code Enforcement (CI/CD)](#phase-3--policy-as-code-enforcement-(CI/CD))
+- [Security Engineering Takeaways](#security-engineering-takeaways)
+- [Limitations](#limitations)
+- [Disclaimer](#disclaimer)
+
 
 ## Summary
 This project demonstrates a practical **application security assessment workflow** that combines static analysis (SAST) and dynamic analysis (DAST) to evaluate the OWASP Juice Shop application across both code-level and runtime attack surfaces.
@@ -99,6 +118,87 @@ This project includes a fully automated GitHub Actions pipeline that:
 - Publishes security summaries and preserves scan artifacts for triage
 
 Screenshots of successful pipeline execution are included in `/screenshots`.
+
+---
+
+## Phase 3 – Policy as Code Enforcement (CI/CD)
+
+Phase 3 extends the CI/CD security pipeline by externalizing security enforcement logic into an explicit Policy as Code layer. This phase demonstrates how security decisions can be defined, reviewed, and enforced independently of individual tools or pipeline implementation.
+
+Rather than embedding pass or fail logic directly within CI workflow steps, enforcement thresholds are defined as version-controlled policy and evaluated programmatically during pipeline execution.
+
+![Phase 3 Architecture Diagram](assets/phase3-diagram.png)
+
+---
+
+### Architecture Overview
+
+The Phase 3 architecture separates security tooling, policy definition, and enforcement decision-making into distinct layers:
+
+- **Security tools** (SonarQube and OWASP ZAP) generate structured security findings.
+- **CI/CD orchestration** (GitHub Actions) executes scans and coordinates pipeline flow.
+- **Policy as Code** defines explicit enforcement thresholds independent of tooling.
+- **Policy evaluation logic** applies policy rules to scan results and returns a deterministic decision.
+
+This separation mirrors real-world DevSecOps patterns where security teams define guardrails and engineering teams execute against them without embedding policy directly into CI logic.
+
+---
+
+### Policy Design
+
+Security enforcement rules are defined in a version-controlled policy file located in the `policy/` directory. The policy explicitly specifies:
+
+- Which OWASP ZAP risk levels are considered blocking
+- Which findings are permitted to pass
+- Contextual constraints reflecting the intentionally vulnerable nature of the application
+
+Only **HIGH-severity runtime findings** result in pipeline failure. Medium and lower severity findings are allowed to pass while remaining visible for triage and remediation planning.
+
+This approach prioritizes runtime-exploitable risk while preserving developer velocity.
+
+---
+
+### Policy Evaluation Flow
+
+1. OWASP ZAP performs a baseline DAST scan against the running application.
+2. ZAP generates a structured JSON report.
+3. A policy evaluation script parses the report and applies enforcement rules defined in Policy as Code.
+4. The pipeline fails or passes based on policy evaluation results.
+5. Scan artifacts and enforcement decisions are preserved for transparency and auditability.
+
+The CI pipeline executes policy but does not define it.
+
+---
+
+### Security Engineering Rationale
+
+- Security enforcement logic is explicit, reviewable, and version-controlled.
+- Policy remains independent of CI tooling and scanning implementations.
+- Enforcement decisions are deterministic and explainable.
+- The same policy model can be extended to additional security domains, including IaC, container security, and cloud guardrails.
+
+This phase demonstrates how application security evolves from tool-driven scanning to policy-driven enforcement.
+
+---
+
+### NIST SP 800-53 Rev. 5 Alignment (Phase 3 Extension)
+
+Phase 3 further supports alignment with the following control objectives:
+
+- **RA-5 (Vulnerability Monitoring and Scanning):**  
+  Runtime vulnerabilities are evaluated and enforced through automated policy decisions.
+
+- **SA-11 (Developer Security Testing):**  
+  Security testing results directly inform deployment decisions.
+
+- **SI-2 (Flaw Remediation):**  
+  High-risk findings are blocked prior to deployment.
+
+- **SA-15 (Development Process, Standards, and Tools):**  
+  Security enforcement is standardized through reusable policy.
+
+- **CM-6 (Configuration Settings):**  
+  Runtime configuration posture is continuously evaluated through DAST and policy enforcement.
 
 ---
 

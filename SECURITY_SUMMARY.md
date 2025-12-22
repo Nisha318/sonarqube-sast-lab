@@ -75,6 +75,10 @@ This phase demonstrates how application security evolves from point-in-time test
 
 ---
 
+In Phase 3, enforcement logic is externalized into a Policy as Code layer. Rather than embedding security gate thresholds directly in CI workflow logic, enforcement rules are defined as version-controlled policy and evaluated programmatically against DAST findings. This approach improves auditability, clarity of decision-making, and scalability of security enforcement across pipelines.
+
+---
+
 ## NIST SP 800-53 Rev. 5 Alignment (Selected Controls)
 
 This project demonstrates activities that align with selected NIST SP 800-53 Rev. 5 control objectives. The mapping below is illustrative and does not represent full system compliance.

@@ -1,0 +1,22 @@
+policy:
+  name: zap-dast-security-gate
+  description: >
+    Defines enforcement thresholds for OWASP ZAP DAST findings
+    in CI pipelines.
+
+enforcement:
+  fail_on:
+    risk_levels:
+      - High
+
+  allow_on:
+    risk_levels:
+      - Medium
+      - Low
+      - Informational
+
+context:
+  notes:
+    - Application is intentionally vulnerable
+    - Policy prioritizes runtime-exploitable risk
+    - Developer velocity is preserved for non-critical findings
