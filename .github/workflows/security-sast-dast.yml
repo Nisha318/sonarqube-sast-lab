@@ -218,7 +218,7 @@ jobs:
           path: .scannerwork/**
           if-no-files-found: ignore
 
-            - name: Setup Python
+        - name: Setup Python
         if: always()
         uses: actions/setup-python@v5
         with:
