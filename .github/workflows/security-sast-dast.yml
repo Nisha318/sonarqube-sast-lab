@@ -215,10 +215,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: sast-sonar-metadata
-          path: .scannerwork/**
+          path: ".scannerwork/**"
           if-no-files-found: ignore
 
-        - name: Setup Python
+      - name: Setup Python
         if: always()
         uses: actions/setup-python@v5
         with:
@@ -232,7 +232,6 @@ jobs:
 
       - name: Evaluate DAST Policy (Phase 3)
         if: always()
-        continue-on-error: true
         run: |
           python scripts/evaluate_dast_policy.py policy/dast-gate.yml
 
