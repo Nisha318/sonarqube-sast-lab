@@ -1,10 +1,13 @@
 # SAST & DAST Security Assessment – OWASP Juice Shop
 
 
-![SonarQube](https://img.shields.io/badge/SAST-SonarQube-informational)
-![OWASP ZAP](https://img.shields.io/badge/DAST-OWASP%20ZAP-informational)
-![Docker](https://img.shields.io/badge/Platform-Docker-blue)
-![Status](https://img.shields.io/badge/Project-Completed-brightgreen)
+![SAST](https://img.shields.io/badge/SAST-SonarQube-informational)
+![DAST](https://img.shields.io/badge/DAST-OWASP%20ZAP-informational)
+![Policy as Code](https://img.shields.io/badge/Policy%20as%20Code-Custom%20Policy-blue)
+![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-blue)
+![Platform](https://img.shields.io/badge/Platform-Docker-lightgrey)
+![Status](https://img.shields.io/badge/Project-Active-success)
+
 
 ## Table of Contents
 
@@ -18,7 +21,7 @@
 - [SAST vs DAST Comparison](#sast-vs-dast-comparison)
 - [Key Findings (Executive View)](#key-findings-executive-view)
 - [CI Evidence](#ci-evidence)
-- [Phase 3 – Policy as Code Enforcement (CI/CD)](#phase-3--policy-as-code-enforcement-(CI/CD))
+- [Phase 3 – Policy as Code Enforcement](#phase-3--policy-as-code-enforcement)
 - [Security Engineering Takeaways](#security-engineering-takeaways)
 - [Limitations](#limitations)
 - [Disclaimer](#disclaimer)
@@ -53,7 +56,8 @@ The application is intentionally vulnerable to support security testing and anal
 - **SonarQube (Community Edition)** – Static Application Security Testing
 - **OWASP ZAP (Baseline Scan)** – Dynamic Application Security Testing
 - **Docker** – Containerized execution for local and CI environments
-- **GitHub Actions** – CI/CD automation for SAST and DAST (Phase 2)
+- **GitHub Actions** – CI/CD orchestration for security scanning, policy evaluation, and enforcement
+
 
 ---
 
@@ -119,13 +123,15 @@ This project includes a fully automated GitHub Actions pipeline that:
 
 Screenshots of successful pipeline execution are included in `/screenshots`.
 
+Policy evaluation results are published alongside scan summaries to make enforcement decisions transparent and explainable.
+
 ---
 
-## Phase 3 – Policy as Code Enforcement (CI/CD)
+## Phase 3 – Policy as Code Enforcement 
 
-Phase 3 extends the CI/CD security pipeline by externalizing security enforcement logic into an explicit Policy as Code layer. This phase demonstrates how security decisions can be defined, reviewed, and enforced independently of individual tools or pipeline implementation.
+Phase 3 extends the CI/CD security pipeline by externalizing security enforcement logic into an explicit, version-controlled Policy as Code layer evaluated during CI execution. This phase demonstrates how security decisions can be defined, reviewed, and enforced independently of individual tools or pipeline implementation.
 
-Rather than embedding pass or fail logic directly within CI workflow steps, enforcement thresholds are defined as version-controlled policy and evaluated programmatically during pipeline execution.
+Rather than hard-coding enforcement logic directly into CI steps or relying solely on tool exit codes, enforcement thresholds are defined as version-controlled policy and evaluated programmatically during pipeline execution.
 
 ![Phase 3 Architecture Diagram](assets/phase3-diagram.png)
 
@@ -137,7 +143,7 @@ The Phase 3 architecture separates security tooling, policy definition, and enfo
 
 - **Security tools** (SonarQube and OWASP ZAP) generate structured security findings.
 - **CI/CD orchestration** (GitHub Actions) executes scans and coordinates pipeline flow.
-- **Policy as Code** defines explicit enforcement thresholds independent of tooling.
+- **Policy as Code** defines explicit enforcement thresholds independent of CI logic and security tools.
 - **Policy evaluation logic** applies policy rules to scan results and returns a deterministic decision.
 
 This separation mirrors real-world DevSecOps patterns where security teams define guardrails and engineering teams execute against them without embedding policy directly into CI logic.
@@ -146,7 +152,9 @@ This separation mirrors real-world DevSecOps patterns where security teams defin
 
 ### Policy Design
 
-Security enforcement rules are defined in a version-controlled policy file located in the `policy/` directory. The policy explicitly specifies:
+Security enforcement rules are defined in a version-controlled policy file located in the `policy/` directory and evaluated programmatically during CI execution.
+
+ The policy explicitly specifies:
 
 - Which OWASP ZAP risk levels are considered blocking
 - Which findings are permitted to pass
@@ -154,7 +162,8 @@ Security enforcement rules are defined in a version-controlled policy file locat
 
 Only **HIGH-severity runtime findings** result in pipeline failure. Medium and lower severity findings are allowed to pass while remaining visible for triage and remediation planning.
 
-This approach prioritizes runtime-exploitable risk while preserving developer velocity.
+This approach prioritizes runtime-exploitable risk while preserving developer velocity and providing an explicit, auditable enforcement decision.
+
 
 ---
 
@@ -163,10 +172,12 @@ This approach prioritizes runtime-exploitable risk while preserving developer ve
 1. OWASP ZAP performs a baseline DAST scan against the running application.
 2. ZAP generates a structured JSON report.
 3. A policy evaluation script parses the report and applies enforcement rules defined in Policy as Code.
-4. The pipeline fails or passes based on policy evaluation results.
+4. The pipeline enforces a pass, warn, or fail decision based on policy evaluation results.
 5. Scan artifacts and enforcement decisions are preserved for transparency and auditability.
+6. Scan artifacts used for policy evaluation are generated dynamically during CI execution and are not committed to source control.
 
-The CI pipeline executes policy but does not define it.
+
+The CI pipeline executes policy but does not define enforcement logic.
 
 ---
 

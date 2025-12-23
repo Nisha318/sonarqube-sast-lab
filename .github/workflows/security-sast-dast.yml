@@ -218,49 +218,61 @@ jobs:
           path: .scannerwork/**
           if-no-files-found: ignore
 
-      - name: Security Gate Decision (DAST High alerts)
+            - name: Setup Python
+        if: always()
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install policy deps (PyYAML)
         if: always()
         run: |
-          echo "## Security Gate Decision" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "**Gate policy:** Fail the pipeline if OWASP ZAP baseline detects HIGH alerts." >> "$GITHUB_STEP_SUMMARY"
+          python -m pip install --upgrade pip
+          pip install pyyaml
+
+      - name: Evaluate DAST Policy (Phase 3)
+        if: always()
+        continue-on-error: true
+        run: |
+          python scripts/evaluate_dast_policy.py policy/dast-gate.yml
+
+          echo "## Policy-as-Code Decision (DAST)" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
-          ZAP_EXIT="${{ steps.zap.outputs.exit_code }}"
+          python - << 'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          with open("policy/dast-policy-result.json") as f:
+              d = json.load(f)
 
-          if [ -z "$ZAP_EXIT" ]; then
-            echo "**Result:** ZAP scan did not complete (exit code not captured)" >> "$GITHUB_STEP_SUMMARY"
-            echo "Security Gate: SKIPPED (ZAP did not run)"
+          print(f"**Decision:** {d['decision']}")
+          print(f"**Counts:** High={d['counts']['High']} Medium={d['counts']['Medium']} Low={d['counts']['Low']} Info={d['counts']['Informational']}")
+          if d.get("reasons"):
+              print("")
+              print("**Reasons:**")
+              for r in d["reasons"][:10]:
+                  print(f"- {r}")
+          PY
+
+      - name: Enforce Policy Decision (Phase 3)
+        if: always()
+        run: |
+          DECISION=$(python -c "import json; print(json.load(open('policy/dast-policy-result.json'))['decision'])")
+          echo "Policy Decision: $DECISION"
+
+          if [ "$DECISION" = "FAIL" ]; then
+            echo "Failing pipeline due to policy decision."
+            exit 1
+          fi
+
+          if [ "$DECISION" = "WARN" ]; then
+            echo "Policy returned WARN. Pipeline continues."
             exit 0
           fi
 
-          case "$ZAP_EXIT" in
-            0)
-              echo "**Result:** PASS ✅ (No alerts detected)" >> "$GITHUB_STEP_SUMMARY"
-              echo "Security Gate: PASS"
-              exit 0
-              ;;
-            1)
-              echo "**Result:** FAIL ❌ (HIGH/CRITICAL alerts detected)" >> "$GITHUB_STEP_SUMMARY"
-              echo "" >> "$GITHUB_STEP_SUMMARY"
-              echo "Review ZAP reports in artifacts for details." >> "$GITHUB_STEP_SUMMARY"
-              echo "Security Gate: FAIL (ZAP exit code $ZAP_EXIT)"
-              exit 1
-              ;;
-            2)
-              echo "**Result:** PASS ⚠️ (WARN-level alerts only, no HIGH alerts)" >> "$GITHUB_STEP_SUMMARY"
-              echo "" >> "$GITHUB_STEP_SUMMARY"
-              echo "Warnings found but no HIGH/CRITICAL alerts. Pipeline passes." >> "$GITHUB_STEP_SUMMARY"
-              echo "Review ZAP reports in artifacts for warning details." >> "$GITHUB_STEP_SUMMARY"
-              echo "Security Gate: PASS (warnings acceptable)"
-              exit 0
-              ;;
-            *)
-              echo "**Result:** FAIL ❌ (ZAP scan error)" >> "$GITHUB_STEP_SUMMARY"
-              echo "Security Gate: FAIL (ZAP exit code $ZAP_EXIT)"
-              exit 1
-              ;;
-          esac
+          echo "Policy returned PASS. Pipeline continues."
+          exit 0
+
+       
 
       - name: Cleanup
         if: always()
